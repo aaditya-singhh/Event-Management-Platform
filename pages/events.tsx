@@ -1,16 +1,21 @@
-import { ClerkProvider, SignInButton, SignedIn, SignedOut, UserButton } from '@clerk/nextjs'
-import '../styles/globals.css'
+// app/layout.tsx
+import '../styles/globals.css';
+import { ClerkProvider, SignInButton, SignedIn, SignedOut, UserButton } from '@clerk/nextjs';
 
-export default function App({ Component, pageProps }: { Component: any; pageProps: any }) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <ClerkProvider>
-      <SignedOut>
-        <SignInButton />
-      </SignedOut>
-      <SignedIn>
-        <UserButton />
-      </SignedIn>
-      <Component {...pageProps} />
-    </ClerkProvider>
+    <html lang="en">
+      <body>
+        <ClerkProvider>
+          <SignedOut>
+            <SignInButton />
+          </SignedOut>
+          <SignedIn>
+            <UserButton />
+          </SignedIn>
+          {children}
+        </ClerkProvider>
+      </body>
+    </html>
   )
 }
