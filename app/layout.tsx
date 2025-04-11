@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { Poppins as PoppinsFont, Inter } from 'next/font/google'
 import { ClerkProvider, SignInButton, SignUpButton, SignedIn, SignedOut, UserButton } from '@clerk/nextjs'
-import './globals.css'
+import '@/styles/globals.css';
 
 // Font Configurations
 const inter = Inter({
