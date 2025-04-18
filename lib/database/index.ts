@@ -1,20 +1,41 @@
+// lib/database/index.ts
 import mongoose from 'mongoose';
 
-const MONGODB_URI = process.env.MONGODB_URI;
+const MONGODB_URI = process.env.MONGODB_URI || '';
+if (!MONGODB_URI) {
+  throw new Error('Please define the MONGODB_URI environment variable inside .env.local');
+}
 
-let cached = (global as any).mongoose || {conn: null, promise: null}
+declare global {
+  // allow global `var` declarations
+  // eslint-disable-next-line no-var
+  var mongooseCache: {
+    conn: typeof mongoose | null;
+    promise: Promise<typeof mongoose> | null;
+  };
+}
 
-export const connectToDatabase = async() => {
-    if(cached.conn) return cached.conn;
+let cache = global.mongooseCache;
 
-    if(!MONGODB_URI) throw new Error('MONGODB_URI is missing');
+if (!cache) {
+  cache = global.mongooseCache = { conn: null, promise: null };
+}
 
-    cached.promise = cached.promise || mongoose.connect(MONGODB_URI, {
-        dbName:'events',
+export async function connectToDatabase() {
+  if (cache.conn) {
+    return cache.conn;
+  }
+
+  if (!cache.promise) {
+    cache.promise = mongoose
+      .connect(MONGODB_URI as string, {
+        dbName: 'evently',
         bufferCommands: false,
-    })
-
-    cached.conn = await cached.promise;
-
-    return cached.conn;
+      })
+      .then((m) => {
+        return m;
+      });
+  }
+  cache.conn = await cache.promise;
+  return cache.conn;
 }

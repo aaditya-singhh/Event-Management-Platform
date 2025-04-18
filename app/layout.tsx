@@ -1,30 +1,23 @@
 import type { Metadata } from 'next'
-import { Poppins as PoppinsFont, Inter } from 'next/font/google'
-import { ClerkProvider, SignInButton, SignUpButton, SignedIn, SignedOut, UserButton } from '@clerk/nextjs'
-import '../styles/globals.css';
+import { Poppins } from 'next/font/google'
+import { ClerkProvider } from '@clerk/nextjs'
 
-// Font Configurations
-const inter = Inter({
-  variable: '--font-inter',
-  subsets: ['latin'],
-})
+import './globals.css'
 
-const poppins = PoppinsFont({ 
+const poppins = Poppins({
   subsets: ['latin'],
   weight: ['400', '500', '600', '700'],
-  variable: '--font-poppins'
+  variable: '--font-poppins',
 })
 
-// Metadata
 export const metadata: Metadata = {
-  title: 'evently',
-  description: 'evently is a platform for event management',
+  title: 'Evently',
+  description: 'Evently is a platform for event management.',
   icons: {
     icon: '/assets/images/logo.svg'
   }
 }
 
-// Root Layout
 export default function RootLayout({
   children,
 }: {
@@ -33,10 +26,7 @@ export default function RootLayout({
   return (
     <ClerkProvider>
       <html lang="en">
-        <body className={`${inter.variable} ${poppins.variable} antialiased`}>
-
-          {children}
-        </body>
+        <body className={poppins.variable}>{children}</body>
       </html>
     </ClerkProvider>
   )
