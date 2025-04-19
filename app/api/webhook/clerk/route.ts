@@ -111,3 +111,8 @@ export async function POST(req: Request) {
   // 7. All other events
   return new Response('', { status: 200 })
 }
+
+// Simple test route
+export async function testPOST() {
+  return Response.json({ message: 'The route is working' })
+}
