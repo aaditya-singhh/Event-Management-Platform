@@ -1,7 +1,6 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-
 import { connectToDatabase } from '@/lib/database'
 import Event from '@/lib/database/models/event.model'
 import User from '@/lib/database/models/user.model'
@@ -28,16 +27,22 @@ const populateEvent = (query: any) => {
 }
 
 // CREATE
-export async function createEvent({ userId, event, path }: CreateEventParams) {
+export async function createEvent({ userId: clerkId, event, path }: CreateEventParams) {
   try {
     await connectToDatabase()
 
-    const organizer = await User.findById(userId)
-    if (!organizer) throw new Error('Organizer not found')
+    // 1) resolve the real Mongo user _id from the Clerk ID
+    const organizer = await User.findOne({ clerkId })
+    if (!organizer) throw new Error(`Organizer not found for clerkId ${clerkId}`)
 
-    const newEvent = await Event.create({ ...event, category: event.categoryId, organizer: userId })
+    // 2) create the event using that ObjectId
+    const newEvent = await Event.create({
+      ...event,
+      category: event.categoryId,
+      organizer: organizer._id,
+    })
+
     revalidatePath(path)
-
     return JSON.parse(JSON.stringify(newEvent))
   } catch (error) {
     handleError(error)
@@ -48,11 +53,8 @@ export async function createEvent({ userId, event, path }: CreateEventParams) {
 export async function getEventById(eventId: string) {
   try {
     await connectToDatabase()
-
     const event = await populateEvent(Event.findById(eventId))
-
     if (!event) throw new Error('Event not found')
-
     return JSON.parse(JSON.stringify(event))
   } catch (error) {
     handleError(error)
@@ -60,22 +62,27 @@ export async function getEventById(eventId: string) {
 }
 
 // UPDATE
-export async function updateEvent({ userId, event, path }: UpdateEventParams) {
+export async function updateEvent({ userId: clerkId, event, path }: UpdateEventParams) {
   try {
     await connectToDatabase()
 
+    // resolve the DB user
+    const organizer = await User.findOne({ clerkId })
+    if (!organizer) throw new Error(`User not found for clerkId ${clerkId}`)
+
+    // fetch & authorize
     const eventToUpdate = await Event.findById(event._id)
-    if (!eventToUpdate || eventToUpdate.organizer.toHexString() !== userId) {
+    if (!eventToUpdate || eventToUpdate.organizer.toString() !== organizer._id.toString()) {
       throw new Error('Unauthorized or event not found')
     }
 
+    // update
     const updatedEvent = await Event.findByIdAndUpdate(
       event._id,
       { ...event, category: event.categoryId },
       { new: true }
     )
     revalidatePath(path)
-
     return JSON.parse(JSON.stringify(updatedEvent))
   } catch (error) {
     handleError(error)
@@ -86,7 +93,6 @@ export async function updateEvent({ userId, event, path }: UpdateEventParams) {
 export async function deleteEvent({ eventId, path }: DeleteEventParams) {
   try {
     await connectToDatabase()
-
     const deletedEvent = await Event.findByIdAndDelete(eventId)
     if (deletedEvent) revalidatePath(path)
   } catch (error) {
@@ -100,10 +106,9 @@ export async function getAllEvents({ query, limit = 6, page, category }: GetAllE
     await connectToDatabase()
 
     const titleCondition = query ? { title: { $regex: query, $options: 'i' } } : {}
-    const categoryCondition = category ? await getCategoryByName(category) : null
-    const conditions = {
-      $and: [titleCondition, categoryCondition ? { category: categoryCondition._id } : {}],
-    }
+    const categoryDoc = category ? await getCategoryByName(category) : null
+    const categoryCondition = categoryDoc ? { category: categoryDoc._id } : {}
+    const conditions = { $and: [titleCondition, categoryCondition] }
 
     const skipAmount = (Number(page) - 1) * limit
     const eventsQuery = Event.find(conditions)
@@ -124,22 +129,27 @@ export async function getAllEvents({ query, limit = 6, page, category }: GetAllE
 }
 
 // GET EVENTS BY ORGANIZER
-export async function getEventsByUser({ userId, limit = 6, page }: GetEventsByUserParams) {
+export async function getEventsByUser({ userId: clerkId, limit = 6, page }: GetEventsByUserParams) {
   try {
     await connectToDatabase()
 
-    const conditions = { organizer: userId }
-    const skipAmount = (page - 1) * limit
+    // resolve real DB user
+    const organizer = await User.findOne({ clerkId })
+    if (!organizer) throw new Error(`User not found for clerkId ${clerkId}`)
 
-    const eventsQuery = Event.find(conditions)
+    const skipAmount = (page - 1) * limit
+    const eventsQuery = Event.find({ organizer: organizer._id })
       .sort({ createdAt: 'desc' })
       .skip(skipAmount)
       .limit(limit)
 
     const events = await populateEvent(eventsQuery)
-    const eventsCount = await Event.countDocuments(conditions)
+    const eventsCount = await Event.countDocuments({ organizer: organizer._id })
 
-    return { data: JSON.parse(JSON.stringify(events)), totalPages: Math.ceil(eventsCount / limit) }
+    return {
+      data: JSON.parse(JSON.stringify(events)),
+      totalPages: Math.ceil(eventsCount / limit),
+    }
   } catch (error) {
     handleError(error)
   }
@@ -156,7 +166,9 @@ export async function getRelatedEventsByCategory({
     await connectToDatabase()
 
     const skipAmount = (Number(page) - 1) * limit
-    const conditions = { $and: [{ category: categoryId }, { _id: { $ne: eventId } }] }
+    const conditions = {
+      $and: [{ category: categoryId }, { _id: { $ne: eventId } }],
+    }
 
     const eventsQuery = Event.find(conditions)
       .sort({ createdAt: 'desc' })
@@ -166,7 +178,10 @@ export async function getRelatedEventsByCategory({
     const events = await populateEvent(eventsQuery)
     const eventsCount = await Event.countDocuments(conditions)
 
-    return { data: JSON.parse(JSON.stringify(events)), totalPages: Math.ceil(eventsCount / limit) }
+    return {
+      data: JSON.parse(JSON.stringify(events)),
+      totalPages: Math.ceil(eventsCount / limit),
+    }
   } catch (error) {
     handleError(error)
   }

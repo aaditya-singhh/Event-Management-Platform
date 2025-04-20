@@ -1,14 +1,30 @@
-import { Document, Schema, model, models } from "mongoose";
+import { Schema, model, models, Document, Types, Model } from 'mongoose'
 
-export interface ICategory extends Document {
-  _id: string;
-  name: string;
+// TS interface for the raw MongoDB document
+export interface ICategory {
+  _id: Types.ObjectId
+  name: string
+  createdAt: Date
+  updatedAt: Date
 }
 
-const CategorySchema = new Schema({
-  name: { type: String, required: true, unique: true },
-})
+// Mongoose Document interface extends Document and binds the schema shape
+export interface ICategoryDocument extends Document<Types.ObjectId> {
+  name: string
+}
 
-const Category = models.Category || model('Category', CategorySchema);
+// Define the schema, with timestamps for createdAt/updatedAt
+const CategorySchema = new Schema<ICategoryDocument>(
+  {
+    name: { type: String, required: true, unique: true },
+  },
+  {
+    timestamps: true,
+  }
+)
 
-export default Category;
+// Use existing model if available, otherwise compile a new one
+// Cast models.Category to Model<ICategoryDocument> to match typing
+const Category = (models.Category as Model<ICategoryDocument>) || model<ICategoryDocument>('Category', CategorySchema)
+
+export default Category
