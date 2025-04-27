@@ -15,10 +15,10 @@ type CardProps = {
 }
 
 const Card = ({ event, hasOrderLink, hidePrice }: CardProps) => {
-  // useAuth is a client‐side hook and gives you the signed-in user's ID
   const { userId } = useAuth()
 
-  const isEventCreator = userId === event.organizer._id
+  // ✅ Fix 1: Convert ObjectId to string + optional chaining
+  const isEventCreator = userId === event.organizer?._id?.toString()
 
   return (
     <div className="group relative flex min-h-[380px] w-full max-w-[400px] flex-col overflow-hidden rounded-xl bg-white shadow-md transition-all hover:shadow-lg md:min-h-[438px]">
@@ -60,8 +60,9 @@ const Card = ({ event, hasOrderLink, hidePrice }: CardProps) => {
         </Link>
 
         <div className="flex-between w-full">
+          {/* ✅ Fix 2: Add optional chaining for organizer */}
           <p className="p-medium-14 md:p-medium-16 text-grey-600">
-            {event.organizer.firstName} {event.organizer.lastName}
+            {event.organizer?.firstName} {event.organizer?.lastName}
           </p>
 
           {hasOrderLink && (
